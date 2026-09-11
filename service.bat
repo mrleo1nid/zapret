@@ -532,8 +532,12 @@ if !errorlevel!==0 (
 echo:
 
 :: OneDrive
-echo %~dp0\ | findstr /I /C:"%OneDrive%\\" > nul
-if !errorlevel!==0 (
+set "ONEDRIVE_FOUND="
+if defined OneDrive (
+    echo %~dp0\ | findstr /I /C:"%OneDrive%\\" > nul
+    if !errorlevel!==0 set "ONEDRIVE_FOUND=1"
+)
+if defined ONEDRIVE_FOUND (
     call :PrintRed "[X] Zapret is installed in a OneDrive folder"
     call :PrintRed "If bypass doesn't work, try to move Zapret to another directory, for example in C:\zapret"
 ) else (
