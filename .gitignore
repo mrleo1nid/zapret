@@ -6,3 +6,5 @@
 
 .vscode/
 /build/
+/utils/vpn_state.txt
+

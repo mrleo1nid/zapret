@@ -61,6 +61,7 @@ cls
 call :ipset_switch_status
 call :game_switch_status
 call :check_updates_switch_status
+call :vpn_switch_status
 call :get_strategy_name
 
 set "menu_choice=null"
@@ -89,12 +90,13 @@ echo.
 echo   :: TOOLS
 echo      11. Run Diagnostics
 echo      12. Run Tests
+echo      13. VPN Services       [!VpnStatus!]
 echo.
 echo   ----------------------------------------
 echo      0. Exit
 echo.
 
-set /p menu_choice=   Select option (0-12): 
+set /p menu_choice=   Select option (0-13): 
 
 if "%menu_choice%"=="1" goto service_install
 if "%menu_choice%"=="2" goto service_remove
@@ -108,6 +110,7 @@ if "%menu_choice%"=="9" goto hosts_update
 if "%menu_choice%"=="10" goto service_check_updates
 if "%menu_choice%"=="11" goto service_diagnostics
 if "%menu_choice%"=="12" goto run_tests
+if "%menu_choice%"=="13" goto vpn_switch
 if "%menu_choice%"=="0" exit /b
 goto menu
 
@@ -830,6 +833,90 @@ if not exist "%checkUpdatesFlag%" (
     echo Disabling check updates...
     del /f /q "%checkUpdatesFlag%"
 )
+
+pause
+goto menu
+
+
+:: VPN SWITCH ==========================
+:vpn_switch_status
+
+set "vpnStateFile=%~dp0utils\vpn_state.txt"
+
+if exist "%vpnStateFile%" (
+    set "VpnStatus=stopped"
+) else (
+    set "VpnStatus=normal"
+)
+exit /b
+
+
+:vpn_switch
+chcp 437 > nul
+cls
+
+set "vpnStateFile=%~dp0utils\vpn_state.txt"
+
+echo Detected VPN services:
+echo:
+powershell -NoProfile -Command "$s = Get-Service | Where-Object { $_.Name -match 'vpn' -or $_.DisplayName -match 'vpn' } | Sort-Object Name; if (-not $s) { Write-Host '   none found' } else { $s | ForEach-Object { Write-Host ('   {0,-28} {1,-9} {2}' -f $_.Name, $_.Status, $_.StartType) } }"
+echo:
+
+if exist "%vpnStateFile%" (
+    echo Saved state - what these services looked like before zapret stopped them:
+    echo:
+    powershell -NoProfile -Command "Get-Content '%vpnStateFile%' | ForEach-Object { $p = $_ -split '\|'; if ($p.Count -eq 3) { Write-Host ('   {0,-28} {1,-9} {2}' -f $p[0], $p[2], $p[1]) } }"
+    echo:
+)
+
+echo   1. Stop VPN services and remember current state
+echo   2. Restore saved state
+echo   0. Back
+echo:
+
+set "VpnChoice=0"
+set /p "VpnChoice=Select option (0-2, default: 0): "
+if "%VpnChoice%"=="" set "VpnChoice=0"
+
+if "%VpnChoice%"=="1" goto vpn_stop
+if "%VpnChoice%"=="2" goto vpn_restore
+goto menu
+
+
+:vpn_stop
+echo:
+
+if not exist "%vpnStateFile%" goto vpn_stop_run
+
+call :PrintYellow "A saved state already exists. Restore it first, or it will be overwritten"
+set "VpnConfirm=N"
+set /p "VpnConfirm=Overwrite saved state? y/N: "
+if /i not "!VpnConfirm!"=="Y" goto menu
+echo:
+
+:vpn_stop_run
+echo Saving current state and stopping VPN services...
+echo:
+powershell -NoProfile -Command "$f = '%vpnStateFile%'; $s = Get-Service | Where-Object { $_.Name -match 'vpn' -or $_.DisplayName -match 'vpn' } | Sort-Object Name; if (-not $s) { Write-Host '   no VPN services found, nothing to do'; exit 0 }; $s | ForEach-Object { '{0}|{1}|{2}' -f $_.Name, $_.StartType, $_.Status } | Set-Content -Path $f -Encoding ASCII; foreach ($x in $s) { try { if ($x.Status -eq 'Running') { Stop-Service -Name $x.Name -Force -ErrorAction Stop }; Set-Service -Name $x.Name -StartupType Disabled -ErrorAction Stop; Write-Host ('   stopped   ' + $x.Name) } catch { Write-Host ('   FAILED    ' + $x.Name + ' : ' + $_.Exception.Message) } }"
+echo:
+call :PrintYellow "Use option 2 to put them back exactly as they were"
+
+pause
+goto menu
+
+
+:vpn_restore
+echo:
+
+if not exist "%vpnStateFile%" (
+    call :PrintRed "No saved state found, nothing to restore"
+    pause
+    goto menu
+)
+
+echo Restoring VPN services to their saved state...
+echo:
+powershell -NoProfile -Command "$f = '%vpnStateFile%'; $ok = $true; foreach ($line in Get-Content $f) { $p = $line -split '\|'; if ($p.Count -ne 3) { continue }; $n = $p[0]; $want = $p[1]; $was = $p[2]; try { Set-Service -Name $n -StartupType $want -ErrorAction Stop; $cur = Get-Service -Name $n -ErrorAction Stop; if ($was -eq 'Running' -and $cur.Status -ne 'Running') { Start-Service -Name $n -ErrorAction Stop } elseif ($was -ne 'Running' -and $cur.Status -eq 'Running') { Stop-Service -Name $n -Force -ErrorAction Stop }; Write-Host ('   restored  {0,-28} {1,-9} {2}' -f $n, $was, $want) } catch { $ok = $false; Write-Host ('   FAILED    ' + $n + ' : ' + $_.Exception.Message) } }; if ($ok) { Remove-Item $f -Force; Write-Host ''; Write-Host '   all services restored, saved state cleared' } else { Write-Host ''; Write-Host '   some services failed, saved state kept so you can retry' }"
 
 pause
 goto menu
