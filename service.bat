@@ -894,7 +894,6 @@ exit /b
 
 
 :vpn_switch
-chcp 437 > nul
 cls
 
 set "vpnStateFile=%~dp0utils\vpn_state.txt"
