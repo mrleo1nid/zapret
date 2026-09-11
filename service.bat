@@ -801,7 +801,7 @@ if /i "%GameFilterMode%"=="all" (
     set "GameFilterStatus=enabled (TCP and UDP)"
     set "GameFilter=1024-65535"
     set "GameFilterTCP=1024-65535"
-    set "GameFilterUDP=1024-7769,7771-65535"
+    set "GameFilterUDP=1024-65535"
 ) else if /i "%GameFilterMode%"=="tcp" (
     set "GameFilterStatus=enabled (TCP)"
     set "GameFilter=1024-65535"
@@ -811,7 +811,7 @@ if /i "%GameFilterMode%"=="all" (
     set "GameFilterStatus=enabled (UDP)"
     set "GameFilter=1024-65535"
     set "GameFilterTCP=12"
-    set "GameFilterUDP=1024-7769,7771-65535"
+    set "GameFilterUDP=1024-65535"
 )
 exit /b
 
