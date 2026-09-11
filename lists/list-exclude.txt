@@ -1,8 +1,7 @@
 pusher.com
 twitch.tv
-steampowered.com
+api.steampowered.com
 steamcommunity.com
-steamusercontent.com
 nvidia.com
 msi.com
 marketplace.visualstudio.com
